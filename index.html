@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parcel Duty Calendar — Lanna 2 Dormitory · PCSHS Chiang Rai</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter (UI), Instrument Serif (display), JetBrains Mono (data), IBM Plex Sans Thai (Thai fallback) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@500;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- html-to-image (primary, pixel-accurate), html2canvas (fallback) & jsPDF for export -->
+    <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ink: { DEFAULT: '#0e0f12', soft: '#2a2d34', muted: '#6b7080', line: '#e6e4df' },
+                        canvas: '#f5f4f0',
+                        accent: {
+                            DEFAULT: 'var(--theme-accent, #2f54eb)',
+                            soft: 'var(--theme-soft, #eef1fe)',
+                            dark: 'var(--theme-accent, #1d39c4)'
+                        },
+                        signal: 'var(--theme-highlight, #ff5b2e)'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'IBM Plex Sans Thai', 'system-ui', 'sans-serif'],
+                        display: ['Instrument Serif', 'IBM Plex Sans Thai', 'Georgia', 'serif'],
+                        mono: ['JetBrains Mono', 'IBM Plex Sans Thai', 'ui-monospace', 'monospace']
+                    },
+                    boxShadow: {
+                        card: '0 1px 2px rgba(14,15,18,.04), 0 8px 24px -8px rgba(14,15,18,.08)',
+                        pop: '0 24px 64px -16px rgba(14,15,18,.35)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --theme-accent: #1e3a8a;
+            --theme-soft: #eef2ff;
+            --theme-highlight: #d97706;
+            --theme-top-strip: linear-gradient(90deg, #1e3a8a, #d97706);
+            --theme-masthead-bg: linear-gradient(180deg, rgba(238,242,255,0.55) 0%, rgba(255,255,255,0) 100%);
+            --theme-page-bg: #f5f4f0;
+        }
+
+        body {
+            font-family: 'Inter', 'IBM Plex Sans Thai', system-ui, sans-serif;
+            background-color: var(--theme-page-bg);
+            -webkit-font-smoothing: antialiased;
+            font-feature-settings: "cv11", "ss01";
+            transition: background-color 0.45s ease;
+        }
+        html[lang="th"] body { line-height: 1.55; }
+
+        .weekend-hatch {
+            background-color: #faf9f7;
+            background-image: repeating-linear-gradient(135deg, transparent 0 7px, rgba(14,15,18,.035) 7px 8px);
+        }
+        .eyebrow { letter-spacing: .14em; text-transform: uppercase; }
+        html[lang="th"] .eyebrow { letter-spacing: .02em; }
+
+        .theme-strip { background: var(--theme-top-strip); }
+        .theme-masthead { background: var(--theme-masthead-bg); }
+        .theme-accent-bg { background-color: var(--theme-accent); }
+        .theme-accent-text { color: var(--theme-accent); }
+        .theme-soft-bg { background-color: var(--theme-soft); }
+        .theme-highlight-text { color: var(--theme-highlight); }
+        .theme-highlight-bg { background-color: var(--theme-highlight); }
+
+        /* While exporting: hide the thick "today" frame */
+        .export-mode .today-ring { box-shadow: none !important; --tw-ring-shadow: 0 0 #0000 !important; }
+
+        /* Ambient festive particles (screen only) */
+        #ambientLayer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 30;
+        }
+        .ambient-particle {
+            position: absolute;
+            user-select: none;
+            opacity: 0;
+            will-change: transform, opacity;
+        }
+        @keyframes particleFall {
+            0%   { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 0; }
+            12%  { opacity: 0.72; }
+            85%  { opacity: 0.55; }
+            100% { transform: translate3d(var(--drift, 32px), 108vh, 0) rotate(var(--spin, 140deg)); opacity: 0; }
+        }
+        @keyframes particleRise {
+            0%   { transform: translate3d(0, 105vh, 0) scale(0.85); opacity: 0; }
+            14%  { opacity: 0.78; }
+            85%  { opacity: 0.62; }
+            100% { transform: translate3d(var(--drift, -24px), -12vh, 0) scale(1.08); opacity: 0; }
+        }
+        @keyframes particleFloat {
+            0%   { transform: translate3d(0, 10vh, 0) scale(0.8) rotate(-8deg); opacity: 0; }
+            25%  { opacity: 0.65; }
+            50%  { transform: translate3d(var(--drift, 24px), -18vh, 0) scale(1.05) rotate(8deg); opacity: 0.55; }
+            100% { transform: translate3d(calc(var(--drift, 24px) * -0.5), -45vh, 0) scale(0.9) rotate(-6deg); opacity: 0; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #ambientLayer { display: none !important; }
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; }
+            #calendarExportContainer { box-shadow: none !important; margin: 0 !important; width: 100% !important; }
+        }
+    </style>
+</head>
+<body class="text-ink min-h-screen pb-20">
+
+    <!-- Screen-only ambient seasonal particles -->
+    <div id="ambientLayer" class="no-print no-export" aria-hidden="true"></div>
+
+    <!-- ==================== TOP NAV ==================== -->
+    <header class="bg-white/85 backdrop-blur-md border-b border-ink-line no-print sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-auto md:h-16 py-3 md:py-0 flex flex-col md:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <div id="brandMark" class="w-9 h-9 rounded-lg theme-accent-bg text-white grid place-items-center font-bold text-sm tracking-tight transition-colors duration-300">L2</div>
+                <div class="leading-tight">
+                    <h1 class="text-[15px] font-semibold tracking-tight" data-i18n="appTitle">Parcel Duty</h1>
+                    <p class="text-xs text-ink-muted" data-i18n="appSubtitle">Lanna 2 Dormitory · PCSHS Chiang Rai</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Language switch -->
+                <div class="flex items-center p-0.5 bg-canvas border border-ink-line rounded-lg text-xs font-semibold" role="group" aria-label="Language">
+                    <button id="langEN" onclick="setLang('en')" class="px-2.5 py-1.5 rounded-md transition">EN</button>
+                    <button id="langTH" onclick="setLang('th')" class="px-2.5 py-1.5 rounded-md transition">TH</button>
+                </div>
+                <span class="w-px h-6 bg-ink-line mx-1 hidden sm:block"></span>
+                <button onclick="exportAsImage()" class="h-9 px-3.5 rounded-lg border border-ink-line bg-white hover:bg-canvas text-sm font-medium transition flex items-center gap-2">
+                    <i class="fa-regular fa-image text-ink-muted"></i> <span data-i18n="exportPng">Export PNG</span>
+                </button>
+                <button onclick="exportAsPDF()" class="h-9 px-3.5 rounded-lg border border-ink-line bg-white hover:bg-canvas text-sm font-medium transition flex items-center gap-2">
+                    <i class="fa-regular fa-file-pdf text-ink-muted"></i> <span data-i18n="exportPdf">Export PDF</span>
+                </button>
+                <button onclick="openSettingsModal()" class="h-9 px-3.5 rounded-lg bg-ink hover:bg-ink-soft text-white text-sm font-medium transition flex items-center gap-2">
+                    <i class="fa-solid fa-sliders"></i> <span data-i18n="settings">Settings</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-3 sm:px-6 mt-8 relative z-10">
+
+        <!-- ==================== TOOLBAR ==================== -->
+        <div class="no-print flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 mb-6">
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="changeMonth(-1)" class="w-9 h-9 rounded-full border border-ink-line bg-white hover:bg-ink hover:text-white hover:border-ink transition grid place-items-center" aria-label="Previous month">
+                    <i class="fa-solid fa-arrow-left text-xs"></i>
+                </button>
+                <button onclick="changeMonth(1)" class="w-9 h-9 rounded-full border border-ink-line bg-white hover:bg-ink hover:text-white hover:border-ink transition grid place-items-center" aria-label="Next month">
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                </button>
+                <h2 id="currentMonthYearDisplay" class="text-xl font-semibold tracking-tight ml-2 min-w-[160px]">—</h2>
+                <button onclick="goToCurrentMonth()" class="h-8 px-3 rounded-full text-xs font-semibold border border-ink-line bg-white hover:border-ink transition" data-i18n="today">Today</button>
+
+                <!-- Theme picker button + popover -->
+                <div class="relative ml-1" id="themePickerWrapper">
+                    <button onclick="toggleThemeMenu(event)" class="h-8 pl-2.5 pr-3 rounded-full text-xs font-semibold border border-ink-line bg-white hover:border-ink transition flex items-center gap-1.5">
+                        <span id="toolbarThemeEmoji">🏮</span>
+                        <span id="toolbarThemeName" class="max-w-[150px] truncate">Yi Peng</span>
+                        <i class="fa-solid fa-chevron-down text-[9px] text-ink-muted"></i>
+                    </button>
+
+                    <div id="themeMenu" class="hidden absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-pop border border-ink-line p-2 z-50">
+                        <div class="px-2.5 py-1.5 flex items-center justify-between border-b border-ink-line mb-1.5">
+                            <span class="eyebrow text-[10px] font-semibold text-ink-muted" data-i18n="themeMenuTitle">Festival Theme</span>
+                            <button onclick="toggleFx()" id="fxToggleBtn" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-canvas hover:bg-ink hover:text-white transition flex items-center gap-1">
+                                <span id="fxDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span data-i18n="fxLabel">FX</span>
+                            </button>
+                        </div>
+                        <div id="themeMenuList" class="max-h-72 overflow-y-auto space-y-0.5 text-xs"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Toggle switch (Default: OFF / do not skip weekends) -->
+                <label class="flex items-center gap-3 cursor-pointer select-none bg-white border border-ink-line rounded-full pl-2 pr-4 h-10">
+                    <span class="relative inline-flex">
+                        <input type="checkbox" id="skipWeekendsToggle" onchange="toggleSkipWeekends()" class="peer sr-only">
+                        <span class="w-10 h-6 rounded-full bg-ink-line peer-checked:bg-accent transition"></span>
+                        <span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition peer-checked:translate-x-4"></span>
+                    </span>
+                    <span class="text-sm font-medium" data-i18n="skipWeekends">Skip weekends</span>
+                </label>
+
+                <div class="flex items-center gap-3 bg-ink text-white rounded-full pl-4 pr-1.5 h-10">
+                    <span class="relative flex w-2 h-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full theme-highlight-bg opacity-75"></span>
+                        <span class="relative inline-flex rounded-full w-2 h-2 theme-highlight-bg"></span>
+                    </span>
+                    <span class="text-sm text-white/70" data-i18n="onDutyToday">On duty today</span>
+                    <span id="todayRoomBadge" class="font-mono font-bold text-sm bg-white text-ink rounded-full px-3 py-1">—</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== CALENDAR CANVAS (exported) ==================== -->
+        <div id="calendarExportContainer" class="bg-white rounded-2xl shadow-card border border-ink-line relative overflow-hidden">
+
+            <!-- Seasonal Top Accent Strip -->
+            <div class="theme-strip h-1.5 w-full"></div>
+
+            <div class="p-5 sm:p-8">
+                <!-- Masthead -->
+                <div class="theme-masthead -mx-5 -mt-5 sm:-mx-8 sm:-mt-8 px-5 pt-6 pb-6 sm:px-8 sm:pt-8 sm:pb-6 mb-0 border-b border-ink relative overflow-hidden">
+                    <!-- Decorative seasonal SVG motif -->
+                    <div id="mastheadMotif" class="pointer-events-none select-none absolute right-4 top-2 sm:right-8 sm:top-3 w-40 h-40 sm:w-52 sm:h-52 opacity-20"></div>
+
+                    <div class="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2.5 mb-3">
+                                <div class="eyebrow text-[11px] font-semibold text-ink-muted flex items-center gap-2">
+                                    <span class="inline-block w-6 h-px bg-ink"></span>
+                                    <span data-i18n="mastheadEyebrow">Parcel Duty Schedule · Lanna 2</span>
+                                </div>
+                                <span id="mastheadThemePill" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold theme-soft-bg theme-accent-text border border-black/5">
+                                    <span id="mastheadThemeEmoji">🏮</span>
+                                    <span id="mastheadThemeText">Yi Peng &amp; Loy Krathong</span>
+                                </span>
+                            </div>
+                            <h2 class="font-display leading-none text-6xl sm:text-8xl tracking-tight">
+                                <span id="calendarMonthTitle">November</span>&nbsp;<span id="calendarYearTitle" class="italic theme-accent-text opacity-85">2026</span>
+                            </h2>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-1 text-sm md:text-right bg-white/75 backdrop-blur-xs rounded-xl px-4 py-2.5 md:bg-transparent md:p-0">
+                            <div class="text-ink-muted" data-i18n="dormLabel">Dormitory</div>
+                            <div class="font-semibold" data-i18n="dormValue">Lanna 2</div>
+                            <div class="text-ink-muted" data-i18n="schoolLabel">School</div>
+                            <div class="font-semibold" data-i18n="schoolValue">PCSHS Chiang Rai</div>
+                            <div class="text-ink-muted" data-i18n="editionLabel">Edition</div>
+                            <div class="font-semibold font-mono" id="editionValue">2026.11</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key facts strip -->
+                <div class="grid grid-cols-3 border-b border-ink-line mb-6">
+                    <div class="py-4 pr-4 border-r border-ink-line">
+                        <div class="eyebrow text-[10px] font-semibold text-ink-muted mb-1" data-i18n="factTimeLabel">Pickup window</div>
+                        <div class="text-sm font-semibold font-mono">16:30 – 18:00</div>
+                    </div>
+                    <div class="py-4 px-4 border-r border-ink-line">
+                        <div class="eyebrow text-[10px] font-semibold text-ink-muted mb-1" data-i18n="factRotationLabel">Rotation</div>
+                        <div class="text-sm font-semibold"><span id="roomCountFact">21</span> <span data-i18n="rooms">rooms</span></div>
+                    </div>
+                    <div class="py-4 pl-4">
+                        <div class="eyebrow text-[10px] font-semibold text-ink-muted mb-1" data-i18n="factDaysLabel">Duty days</div>
+                        <div class="text-sm font-semibold" id="dutyDaysFact">Every day</div>
+                    </div>
+                </div>
+
+                <!-- Weekday header -->
+                <div id="weekdayHeader" class="grid grid-cols-7 border-t border-l border-ink-line rounded-t-xl overflow-hidden bg-canvas"></div>
+
+                <!-- Calendar grid -->
+                <div id="calendarGrid" class="grid grid-cols-7 border-l border-ink-line rounded-b-xl overflow-hidden"></div>
+
+                <!-- Legend -->
+                <div class="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-xs text-ink-muted">
+                    <span class="flex items-center gap-2 no-export"><span class="w-5 h-5 rounded-full bg-ink inline-block"></span><span data-i18n="legendToday">Today</span></span>
+                    <span class="flex items-center gap-2"><span class="w-5 h-3 rounded theme-accent-bg inline-block"></span><span data-i18n="legendDuty">Room on duty</span></span>
+                    <span class="flex items-center gap-2"><span class="w-4 h-3 rounded theme-soft-bg border border-black/10 inline-block"></span><span data-i18n="legendHoliday">Festival / Holiday</span></span>
+                    <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full theme-highlight-bg inline-block"></span><span data-i18n="legendEdited">Manually edited</span></span>
+                    <span class="flex items-center gap-2"><span class="w-5 h-3 rounded weekend-hatch border border-ink-line inline-block"></span><span data-i18n="legendOff">No duty</span></span>
+                </div>
+
+                <!-- Footer: mini calendars + credits -->
+                <div class="mt-8 pt-6 border-t border-ink grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                    <div class="md:col-span-3">
+                        <div id="prevMonthMiniTitle" class="eyebrow text-[10px] font-semibold text-ink-muted mb-2">—</div>
+                        <div id="prevMonthMiniGrid" class="grid grid-cols-7 gap-y-1 text-[10px] font-mono text-ink-soft"></div>
+                    </div>
+
+                    <div class="md:col-span-6 md:px-6 md:border-x border-ink-line text-sm">
+                        <div class="font-display text-2xl leading-tight mb-1" data-i18n="footerTitle">Lanna 2 Parcel Office</div>
+                        <div class="text-ink-muted" data-i18n="footerSchool">Princess Chulabhorn Science High School Chiang Rai</div>
+                        <div class="text-ink-muted mt-2 text-xs" data-i18n="footerCredit">Prepared by the Lanna 2 Dormitory Student Committee · Pickup at the Student Affairs Building (Tha Sawan Building)</div>
+                        <div class="mt-2 text-[11px] text-ink-muted/80 no-print" data-i18n="footerHint">Tip: click any day to override its assigned room.</div>
+                    </div>
+
+                    <div class="md:col-span-3">
+                        <div id="nextMonthMiniTitle" class="eyebrow text-[10px] font-semibold text-ink-muted mb-2">—</div>
+                        <div id="nextMonthMiniGrid" class="grid grid-cols-7 gap-y-1 text-[10px] font-mono text-ink-soft"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ROOM ROTATION ==================== -->
+        <section class="mt-8 bg-white border border-ink-line rounded-2xl p-5 sm:p-6 no-print shadow-card">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold flex items-center gap-2">
+                    <i class="fa-solid fa-arrows-rotate text-ink-muted"></i>
+                    <span data-i18n="rotationTitle">Rotation order</span>
+                    <span class="text-ink-muted font-normal">· <span id="roomCountChip">21</span> <span data-i18n="rooms">rooms</span></span>
+                </h3>
+                <span class="text-xs text-ink-muted flex items-center gap-1.5"><span class="w-2 h-2 rounded-full theme-accent-bg"></span><span data-i18n="anchorLegend">Today's anchor</span></span>
+            </div>
+            <div id="roomListChips" class="flex flex-wrap gap-2"></div>
+        </section>
+    </main>
+
+    <!-- ==================== MODAL: EDIT DAY ==================== -->
+    <div id="editDayModal" class="fixed inset-0 bg-ink/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 no-print" onclick="if(event.target===this) closeEditModal()">
+        <div class="bg-white rounded-2xl shadow-pop max-w-md w-full overflow-hidden">
+            <div class="flex justify-between items-start px-6 pt-6 pb-4">
+                <div>
+                    <div class="eyebrow text-[10px] font-semibold text-ink-muted mb-1" data-i18n="editEyebrow">Edit duty</div>
+                    <h3 class="text-xl font-semibold tracking-tight" id="modalDateTitle">—</h3>
+                    <div id="modalHolidayBadge" class="hidden mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold theme-soft-bg theme-accent-text"></div>
+                </div>
+                <button onclick="closeEditModal()" class="w-8 h-8 rounded-full hover:bg-canvas grid place-items-center text-ink-muted" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="px-6 pb-6 space-y-4 text-sm">
+                <div>
+                    <label class="block font-medium mb-1.5" data-i18n="roomForDay">Room on duty</label>
+                    <select id="modalRoomSelect" class="w-full bg-white border border-ink-line rounded-lg px-3 h-11 font-mono font-medium focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"></select>
+                </div>
+                <div>
+                    <label class="block font-medium mb-1.5" data-i18n="customNote">Custom note</label>
+                    <input type="text" id="modalCustomNote" data-i18n-placeholder="customNotePh" placeholder="e.g. Holiday / No pickup" class="w-full bg-white border border-ink-line rounded-lg px-3 h-11 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent">
+                    <p class="text-xs text-ink-muted mt-1.5" data-i18n="customNoteHelp">Shown instead of the room, e.g. home-visit week.</p>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-canvas border-t border-ink-line flex gap-3 justify-end">
+                <button onclick="resetDayCustomization()" class="h-10 px-4 rounded-lg border border-ink-line bg-white hover:border-ink text-sm font-medium transition" data-i18n="resetAuto">Reset to auto</button>
+                <button onclick="saveDayCustomization()" class="h-10 px-5 rounded-lg bg-ink hover:bg-ink-soft text-white text-sm font-medium transition" data-i18n="save">Save changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: SETTINGS ==================== -->
+    <div id="settingsModal" class="fixed inset-0 bg-ink/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 no-print" onclick="if(event.target===this) closeSettingsModal()">
+        <div class="bg-white rounded-2xl shadow-pop max-w-lg w-full overflow-hidden">
+            <div class="flex justify-between items-start px-6 pt-6 pb-4">
+                <div>
+                    <div class="eyebrow text-[10px] font-semibold text-ink-muted mb-1" data-i18n="settings">Settings</div>
+                    <h3 class="text-xl font-semibold tracking-tight" data-i18n="settingsTitle">Room rotation</h3>
+                </div>
+                <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-full hover:bg-canvas grid place-items-center text-ink-muted" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="px-6 pb-6 space-y-4 text-sm">
+                <div class="flex gap-3 items-start theme-soft-bg rounded-xl p-3.5 text-[13px] text-ink-soft">
+                    <i class="fa-solid fa-circle-info theme-accent-text mt-0.5"></i>
+                    <p><span data-i18n="settingsInfo1">The schedule is anchored to today (room</span> <strong id="settingsAnchorRoom" class="font-mono text-ink">222/3</strong><span data-i18n="settingsInfo2">) and calculated forwards and backwards automatically.</span></p>
+                </div>
+                <div>
+                    <label class="block font-medium mb-1.5" data-i18n="anchorRoom">Today's room</label>
+                    <select id="anchorRoomSelect" class="w-full bg-white border border-ink-line rounded-lg px-3 h-11 font-mono font-medium focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"></select>
+                </div>
+                <div>
+                    <label class="block font-medium mb-1.5" data-i18n="sequence">Rotation sequence</label>
+                    <textarea id="roomSequenceInput" rows="4" class="w-full bg-white border border-ink-line rounded-lg p-3 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"></textarea>
+                    <p class="text-xs text-ink-muted mt-1.5" data-i18n="sequenceHelp">Separate rooms with commas.</p>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-canvas border-t border-ink-line flex justify-end gap-3">
+                <button onclick="closeSettingsModal()" class="h-10 px-4 rounded-lg border border-ink-line bg-white hover:border-ink text-sm font-medium transition" data-i18n="cancel">Cancel</button>
+                <button onclick="saveSettings()" class="h-10 px-5 rounded-lg bg-ink hover:bg-ink-soft text-white text-sm font-medium transition" data-i18n="saveSettings">Save settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white px-4 py-3 rounded-full shadow-pop translate-y-24 opacity-0 transition-all duration-300 z-50 flex items-center gap-3 no-print text-sm font-medium">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMessage">Saved</span>
+    </div>
+
+    <script>
+        // ==================== I18N ====================
+        const I18N = {
+            en: {
+                appTitle: 'Parcel Duty',
+                appSubtitle: 'Lanna 2 Dormitory · PCSHS Chiang Rai',
+                exportPng: 'Export PNG', exportPdf: 'Export PDF', settings: 'Settings',
+                today: 'Today', skipWeekends: 'Skip weekends', onDutyToday: 'On duty today',
+                mastheadEyebrow: 'Parcel Duty Schedule · Lanna 2',
+                dormLabel: 'Dormitory', dormValue: 'Lanna 2',
+                schoolLabel: 'School', schoolValue: 'PCSHS Chiang Rai',
+                editionLabel: 'Edition',
+                factTimeLabel: 'Pickup window', factRotationLabel: 'Rotation', factDaysLabel: 'Duty days',
+                rooms: 'rooms', monFri: 'Mon – Fri', everyDay: 'Every day',
+                legendToday: 'Today', legendDuty: 'Room on duty', legendHoliday: 'Festival / Holiday', legendEdited: 'Manually edited', legendOff: 'No duty',
+                footerTitle: 'Lanna 2 Parcel Office',
+                footerSchool: 'Princess Chulabhorn Science High School Chiang Rai',
+                footerCredit: 'Prepared by the Lanna 2 Dormitory Student Committee · Pickup at the Student Affairs Building (Tha Sawan Building)',
+                footerHint: 'Tip: click any day to override its assigned room.',
+                rotationTitle: 'Rotation order', anchorLegend: "Today's anchor",
+                editEyebrow: 'Edit duty', roomForDay: 'Room on duty', customNote: 'Custom note',
+                customNotePh: 'e.g. Holiday / No pickup', customNoteHelp: 'Shown instead of the room, e.g. home-visit week.',
+                resetAuto: 'Reset to auto', save: 'Save changes', selectRoom: '— Select a room —', roomPrefix: 'Room',
+                settingsTitle: 'Room rotation',
+                settingsInfo1: 'The schedule is anchored to today (room',
+                settingsInfo2: ') and calculated forwards and backwards automatically.',
+                anchorRoom: "Today's room", sequence: 'Rotation sequence', sequenceHelp: 'Separate rooms with commas.',
+                cancel: 'Cancel', saveSettings: 'Save settings',
+                onDuty: 'On duty', weekend: 'Weekend', dayOff: 'Day off', todayTag: 'Today',
+                themeMenuTitle: 'Festival Theme', themeAuto: 'Auto (By Month)', themeClassic: 'Classic Minimal', fxLabel: 'Ambient FX',
+                toastSkipOn: 'Weekends skipped', toastSkipOff: 'Weekends included',
+                toastSaved: 'Changes saved', toastReset: 'Reset to automatic rotation',
+                toastNeedRoom: 'Please enter at least one room', toastSettings: 'Settings updated',
+                toastExportingPng: 'Generating PNG…', toastPngDone: 'PNG downloaded',
+                toastExportingPdf: 'Generating PDF…', toastPdfDone: 'PDF downloaded',
+                toastError: 'Something went wrong while exporting',
+                toastFxOn: 'Festive effects on', toastFxOff: 'Festive effects off',
+                fileName: 'Lanna2_ParcelDuty'
+            },
+            th: {
+                appTitle: 'เวรรับพัสดุ',
+                appSubtitle: 'หอพักล้านนา 2 · จ.ภ.เชียงราย',
+                exportPng: 'บันทึก PNG', exportPdf: 'บันทึก PDF', settings: 'ตั้งค่า',
+                today: 'วันนี้', skipWeekends: 'ข้ามเสาร์-อาทิตย์', onDutyToday: 'เวรวันนี้',
+                mastheadEyebrow: 'ตารางเวรรับพัสดุ · ล้านนา 2',
+                dormLabel: 'หอพัก', dormValue: 'ล้านนา 2',
+                schoolLabel: 'โรงเรียน', schoolValue: 'จ.ภ.เชียงราย',
+                editionLabel: 'ฉบับ',
+                factTimeLabel: 'เวลารับ', factRotationLabel: 'วนเวร', factDaysLabel: 'วันที่มีเวร',
+                rooms: 'ห้อง', monFri: 'จันทร์ – ศุกร์', everyDay: 'ทุกวัน',
+                legendToday: 'วันนี้', legendDuty: 'ห้องที่มีเวร', legendHoliday: 'เทศกาล / วันสำคัญ', legendEdited: 'แก้ไขเอง', legendOff: 'ไม่มีเวร',
+                footerTitle: 'งานพัสดุ หอพักล้านนา 2',
+                footerSchool: 'โรงเรียนวิทยาศาสตร์จุฬาภรณราชวิทยาลัย เชียงราย',
+                footerCredit: 'จัดทำโดย คณะกรรมการนักเรียนหอพักล้านนา 2 · จุดรับพัสดุ: อาคารกิจการนักเรียน (อาคารท้าสวรรค์)',
+                footerHint: 'เคล็ดลับ: คลิกที่วันใดก็ได้เพื่อเปลี่ยนห้องเวร',
+                rotationTitle: 'ลำดับการวนเวร', anchorLegend: 'จุดอ้างอิงวันนี้',
+                editEyebrow: 'แก้ไขเวร', roomForDay: 'ห้องที่มีเวร', customNote: 'ข้อความพิเศษ',
+                customNotePh: 'เช่น วันหยุด / ไม่รับพัสดุ', customNoteHelp: 'แสดงแทนเลขห้อง เช่น สัปดาห์กลับบ้าน',
+                resetAuto: 'รีเซ็ตเป็นอัตโนมัติ', save: 'บันทึก', selectRoom: '— เลือกห้อง —', roomPrefix: 'ห้อง',
+                settingsTitle: 'ระบบวนเวรห้อง',
+                settingsInfo1: 'ระบบยึดวันนี้เป็นจุดอ้างอิง (ห้อง',
+                settingsInfo2: ') แล้วคำนวณย้อนหลังและล่วงหน้าโดยอัตโนมัติ',
+                anchorRoom: 'ห้องเวรของวันนี้', sequence: 'ลำดับการวนห้อง', sequenceHelp: 'คั่นแต่ละห้องด้วยเครื่องหมายจุลภาค (,)',
+                cancel: 'ยกเลิก', saveSettings: 'บันทึกการตั้งค่า',
+                onDuty: 'เวร', weekend: 'เสาร์-อาทิตย์', dayOff: 'วันหยุด', todayTag: 'วันนี้',
+                themeMenuTitle: 'ธีมเทศกาลประจำเดือน', themeAuto: 'อัตโนมัติ (ตามเดือน)', themeClassic: 'คลาสสิกเรียบหรู', fxLabel: 'เอฟเฟกต์',
+                toastSkipOn: 'เปิดการข้ามเสาร์-อาทิตย์', toastSkipOff: 'ปิดการข้ามเสาร์-อาทิตย์',
+                toastSaved: 'บันทึกเรียบร้อย', toastReset: 'รีเซ็ตเป็นลำดับอัตโนมัติแล้ว',
+                toastNeedRoom: 'กรุณาระบุอย่างน้อย 1 ห้อง', toastSettings: 'อัปเดตการตั้งค่าแล้ว',
+                toastExportingPng: 'กำลังสร้างไฟล์ PNG…', toastPngDone: 'ดาวน์โหลด PNG สำเร็จ',
+                toastExportingPdf: 'กำลังสร้างไฟล์ PDF…', toastPdfDone: 'ดาวน์โหลด PDF สำเร็จ',
+                toastError: 'เกิดข้อผิดพลาดในการส่งออกไฟล์',
+                toastFxOn: 'เปิดเอฟเฟกต์เทศกาลแล้ว', toastFxOff: 'ปิดเอฟเฟกต์เทศกาลแล้ว',
+                fileName: 'เวรพัสดุล้านนา2'
+            }
+        };
+
+        const MONTHS = {
+            en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+            th: ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+        };
+        const WEEKDAYS = {
+            en: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+            th: ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์']
+        };
+        const WEEKDAYS_SHORT = {
+            en: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+            th: ['อา','จ','อ','พ','พฤ','ศ','ส']
+        };
+        const WEEKDAYS_MINI = {
+            en: ['S','M','T','W','T','F','S'],
+            th: ['อา','จ','อ','พ','พฤ','ศ','ส']
+        };
+
+        // ==================== MONTHLY FESTIVAL THEMES ====================
+        const CLASSIC_THEME = {
+            id: 'classic',
+            emoji: '◆',
+            name: { en: 'Classic Minimal', th: 'คลาสสิกมินิมอล' },
+            accent: '#2f54eb',
+            soft: '#eef1fe',
+            highlight: '#ff5b2e',
+            pageBg: '#f5f4f0',
+            topStrip: 'linear-gradient(90deg, #0e0f12, #2f54eb)',
+            mastheadBg: 'linear-gradient(180deg, rgba(238,241,254,0.45) 0%, rgba(255,255,255,0) 100%)',
+            particles: null,
+            motif: ''
+        };
+
+        const MONTH_THEMES = [
+            { // 0: Jan
+                id: 0, emoji: '✦',
+                name: { en: 'New Year & Winter Frost', th: 'ปีใหม่ & ลมหนาวเชียงราย' },
+                accent: '#3730a3', soft: '#eef2ff', highlight: '#d97706', pageBg: '#f3f4fa',
+                topStrip: 'linear-gradient(90deg, #1e1b4b, #4338ca, #d97706)',
+                mastheadBg: 'linear-gradient(135deg, rgba(238,242,255,0.8) 0%, rgba(254,243,199,0.35) 100%)',
+                particles: { chars: ['✦', '❄', '✧', '·'], anim: 'fall', color: '#4338ca' },
+                motif: `<svg viewBox="0 0 200 200" fill="none" stroke="#3730a3" stroke-width="2"><path d="M100 18v164M18 100h164M42 42l116 116M158 42L42 158"/><circle cx="100" cy="100" r="24" fill="#eef2ff"/><path d="M100 50l8 18-8 8-8-8 8-18zM100 150l8-18-8-8-8 8 8 18zM50 100l18-8 8 8-8 8-18-8zM150 100l-18-8-8 8 8 8 18-8z" fill="#d97706" stroke="none"/></svg>`
+            },
+            { // 1: Feb
+                id: 1, emoji: '♥',
+                name: { en: 'Valentine & Blossoms', th: 'วาเลนไทน์ & ดอกไม้บาน' },
+                accent: '#be185d', soft: '#fdf2f8', highlight: '#e11d48', pageBg: '#faf3f6',
+                topStrip: 'linear-gradient(90deg, #9d174d, #ec4899, #fb7185)',
+                mastheadBg: 'linear-gradient(135deg, rgba(253,242,248,0.85) 0%, rgba(255,228,230,0.45) 100%)',
+                particles: { chars: ['♥', '✿', '♡'], anim: 'rise', color: '#e11d48' },
+                motif: `<svg viewBox="0 0 200 200" fill="none"><path d="M100 156C100 156 36 112 36 70c0-20 15-34 34-34 13 0 24 7 30 18 6-11 17-18 30-18 19 0 34 14 34 34 0 42-64 86-64 86z" stroke="#be185d" stroke-width="2.5" fill="#fbcfe8" fill-opacity="0.45"/><circle cx="148" cy="42" r="6" fill="#be185d"/><circle cx="52" cy="148" r="4" fill="#e11d48"/></svg>`
+            },
+            { // 2: Mar
+                id: 2, emoji: '✿',
+                name: { en: 'Golden Bloom & Makha', th: 'มาฆบูชา & เหลืองเชียงราย' },
+                accent: '#b45309', soft: '#fef3c7', highlight: '#d97706', pageBg: '#faf7f0',
+                topStrip: 'linear-gradient(90deg, #92400e, #f59e0b, #fbbf24)',
+                mastheadBg: 'linear-gradient(135deg, rgba(254,243,199,0.75) 0%, rgba(255,251,235,0.3) 100%)',
+                particles: { chars: ['✿', '❀', '·'], anim: 'fall', color: '#d97706' },
+                motif: `<svg viewBox="0 0 200 200" fill="none" stroke="#b45309" stroke-width="2"><circle cx="100" cy="100" r="64" stroke-dasharray="6 6"/><circle cx="100" cy="100" r="34"/><g fill="#fbbf24" fill-opacity="0.4"><ellipse cx="100" cy="48" rx="14" ry="24"/><ellipse cx="100" cy="152" rx="14" ry="24"/><ellipse cx="48" cy="100" rx="24" ry="14"/><ellipse cx="152" cy="100" rx="24" ry="14"/></g><circle cx="100" cy="100" r="10" fill="#b45309"/></svg>`
+            },
+            { // 3: Apr
+                id: 3, emoji: '💧',
+                name: { en: 'Songkran Splash', th: 'มหาสงกรานต์ & สาดความสดชื่น' },
+                accent: '#0369a1', soft: '#e0f2fe', highlight: '#06b6d4', pageBg: '#f0f7fb',
+                topStrip: 'linear-gradient(90deg, #0369a1, #06b6d4, #38bdf8)',
+                mastheadBg: 'linear-gradient(135deg, rgba(224,242,254,0.85) 0%, rgba(207,250,254,0.35) 100%)',
+                particles: { chars: ['💧', '◦', '∘'], anim: 'fall', color: '#0284c7' },
+                motif: `<svg viewBox="0 0 200 200" fill="none" stroke="#0369a1" stroke-width="2.2"><path d="M100 32c0 0-42 52-42 84a42 42 0 0 0 84 0c0-32-42-84-42-84z" fill="#bae6fd" fill-opacity="0.45"/><path d="M24 162q19-12 38 0t38 0 38 0 38 0" stroke="#06b6d4" stroke-width="2.5"/><path d="M24 176q19-12 38 0t38 0 38 0 38 0" stroke="#0369a1" stroke-width="2"/></svg>`
+            },
+            { // 4: May
+                id: 4, emoji: '🌿',
+                name: { en: 'Emerald Monsoon & Visakha', th: 'ต้นฤดูฝน & วิสาขบูชา' },
+                accent: '#047857', soft: '#ecfdf5', highlight: '#10b981', pageBg: '#f1f7f4',
+                topStrip: 'linear-gradient(90deg, #065f46, #059669, #34d399)',
+                mastheadBg: 'linear-gradient(135deg, rgba(236,253,245,0.85) 0%, rgba(209,250,229,0.3) 100%)',
+                particles: { chars: ['🌿', '🍃', '·'], anim: 'fall', color: '#059669' },
+                motif: `<svg viewBox="0 0 200 200" fill="none" stroke="#047857" stroke-width="2.2"><path d="M150 40C90 42 46 86 44 146c60-2 104-46 106-106z" fill="#a7f3d0" fill-opacity="0.45"/><path d="M44 146L150 40M78 112l-10-32M106 84l32 10"/></svg>`
+            },
+            { // 5: Jun
+                id: 5, emoji: '🌈',
+                name: { en: 'Pride & Solstice', th: 'Pride Month & ครีษมายัน' },
+                accent: '#6d28d9', soft: '#f3e8ff', highlight: '#ec4899', pageBg: '#f6f3fa',
+                topStrip: 'linear-gradient(90deg, #ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6)',
+                mastheadBg: 'linear-gradient(135deg, rgba(243,232,255,0.8) 0%, rgba(252,231,243,0.4) 100%)',
+                particles: { chars: ['✦', '◦', '★'], anim: 'float', color: '#7c3aed' },
+                motif: `<svg viewBox="0 0 200 200" fill="none" stroke-width="5" stroke-linecap="round"><path d="M35 150a65 65 0 0 1 130 0" stroke="#ef4444"/><path d="M47 150a53 53 0 0 1 106 0" stroke="#f59e0b"/><path d="M59 150a41 41 0 0 1 82 0" stroke="#10b981"/><path d="M71 150a29 29 0 0 1 58 0" stroke="#3b82f6"/><path d="M83 150a17 17 0 0 1 34 0" stroke="#8b5cf6"/></svg>`
+            },
+            { // 6: Jul
+                id: 6, emoji: '🕯️',
+                name: { en: 'Candlelight & Asalha', th: 'อาสาฬหบูชา & เข้าพรรษา' },
+                accent: '#c2410c', soft: '#fff7ed', highlight: '#f59e0b', pageBg: '#faf5f0',
+                topStrip: 'linear-gradient(90deg, #9a3412, #ea580c, #f59e0b)',
+                mastheadBg: 'linear-gradient(135deg, rgba(255,247,237,0.85) 0%, rgba(254,243,199,0.45) 100%)',
+                particles: { chars: ['✦', '✺', '·'], anim: 'rise', color: '#ea580c' },
+                motif: `<svg viewBox="0 0 200 200" fill="none" stroke="#c2410c" stroke-width="2.2"><rect x="78" y="96" width="44" height="72" rx="6" fill="#fed7aa" fill-opacity="0.45"/><path d="M100 36c14 20 18 36 0 48-18-12-14-28 0-48z" fill="#f59e0b" fill-opacity="0.75"/><circle cx="100" cy="60" r="34" stroke-dasharray="4 6" stroke="#f59e0b"/></svg>`
+            },
+            { // 7: Aug
+                id: 7, emoji: '❀',
+                name: { en: "Jasmine & Mother's Day", th: 'วันแม่แห่งชาติ & ดอกมะลิ' },
+                accent: '#1d4ed8', soft: '#eff6ff', highlight: '#0284c7', pageBg: '#f1f5fb',
+                topStrip: 'linear-gradient(90deg, #1e40af, #3b82f6, #93c5fd)',
+                mastheadBg: 'linear-gradient(135deg, rgba(239,246,255,0.9) 0%, rgba(219,234,254,0.35) 100%)',
+                particles: { chars: ['❀', '✿', '♡'], anim: 'fall', color: '#2563eb' },
+                motif: `<svg viewBox="0 0 200 200" fill="none" stroke="#1d4ed8" stroke-width="2"><g fill="#dbeafe" fill-opacity="0.65"><circle cx="100" cy="62" r="22"/><circle cx="136" cy="88" r="22"/><circle cx="122" cy="130" r="22"/><circle cx="78" cy="130" r="22"/><circle cx="64" cy="88" r="22"/></g><circle cx="100" cy="100" r="14" fill="#1d4ed8"/></svg>`
+            },
+            { // 8: Sep
+                id: 8, emoji: '🌙',
+                name: { en: 'Autumn Moon & Equinox', th: 'จันทร์เพ็ญ & ศารทวิษุวัต' },
+                accent: '#92400e', soft: '#fef3c7', highlight: '#b45309', pageBg: '#f9f5ef',
+                topStrip: 'linear-gradient(90deg, #78350f, #b45309, #fbbf24)',
+                mastheadBg: 'linear-gradient(135deg, rgba(254,243,199,0.75) 0%, rgba(255,237,213,0.35) 100%)',
+                particles: { chars: ['🌙', '✦', '🍂'], anim: 'fall', color: '#b45309' },
+                motif: `<svg viewBox="0 0 200 200" fill="none" stroke="#92400e" stroke-width="2.2"><path d="M126 42a58 58 0 1 0 32 104 46 46 0 1 1-32-104z" fill="#fde68a" fill-opacity="0.6"/><circle cx="142" cy="64" r="5" fill="#b45309" stroke="none"/><circle cx="160" cy="88" r="3" fill="#b45309" stroke="none"/></svg>`
+            },
+            { // 9: Oct
+                id: 9, emoji: '🎃',
+                name: { en: 'Spooky Harvest', th: 'ฮาโลวีน & ปิยมหาราช' },
+                accent: '#c2410c', soft: '#fff1e6', highlight: '#18181b', pageBg: '#f8f3ef',
+                topStrip: 'linear-gradient(90deg, #18181b, #ea580c, #f97316)',
+                mastheadBg: 'linear-gradient(135deg, rgba(255,241,230,0.85) 0%, rgba(244,244,245,0.45) 100%)',
+                particles: { chars: ['🎃', '🦇', '✦'], anim: 'float', color: '#ea580c' },
+                motif: `<svg viewBox="0 0 200 200" fill="none" stroke="#c2410c" stroke-width="2.2"><path d="M100 44c0-10 8-16 16-16" stroke="#18181b" stroke-width="3" stroke-linecap="round"/><ellipse cx="100" cy="112" rx="58" ry="44" fill="#fed7aa" fill-opacity="0.55"/><ellipse cx="100" cy="112" rx="34" ry="44"/><ellipse cx="100" cy="112" rx="14" ry="44"/><polygon points="74,102 86,102 80,90" fill="#18181b" stroke="none"/><polygon points="114,102 126,102 120,90" fill="#18181b" stroke="none"/></svg>`
+            },
+            { // 10: Nov
+                id: 10, emoji: '🏮',
+                name: { en: 'Yi Peng & Loy Krathong', th: 'ยี่เป็ง & ลอยกระทง' },
+                accent: '#1e3a8a', soft: '#eef2ff', highlight: '#d97706', pageBg: '#f2f4fa',
+                topStrip: 'linear-gradient(90deg, #0f172a, #1e3a8a, #f59e0b)',
+                mastheadBg: 'linear-gradient(135deg, rgba(238,242,255,0.85) 0%, rgba(254,243,199,0.5) 100%)',
+                particles: { chars: ['🏮', '✦', '✧'], anim: 'rise', color: '#d97706' },
+                motif: `<svg viewBox="0 0 200 200" fill="none"><g stroke="#1e3a8a" stroke-width="2"><path d="M84 44h32l12 36-14 26H86L72 80l12-36z" fill="#fde68a" fill-opacity="0.65"/><line x1="86" y1="106" x2="114" y2="106"/><circle cx="100" cy="96" r="5" fill="#d97706" stroke="none"/><path d="M138 78h20l8 22-9 16h-18l-9-16 8-22z" fill="#fef3c7" fill-opacity="0.7"/><path d="M28 164q24-12 48 0t48 0 48 0" stroke="#1e3a8a" stroke-width="2.2"/><path d="M28 178q24-12 48 0t48 0 48 0" stroke="#d97706" stroke-width="1.8"/></g></svg>`
+            },
+            { // 11: Dec
+                id: 11, emoji: '❄️',
+                name: { en: 'Winter Festive & Holidays', th: 'คริสต์มาส & ส่งท้ายปีเก่า' },
+                accent: '#15803d', soft: '#ecfdf3', highlight: '#dc2626', pageBg: '#f2f7f3',
+                topStrip: 'linear-gradient(90deg, #14532d, #16a34a, #dc2626)',
+                mastheadBg: 'linear-gradient(135deg, rgba(236,253,243,0.85) 0%, rgba(254,226,226,0.35) 100%)',
+                particles: { chars: ['❄', '✦', '🎄'], anim: 'fall', color: '#15803d' },
+                motif: `<svg viewBox="0 0 200 200" fill="none" stroke="#15803d" stroke-width="2.2" stroke-linejoin="round"><polygon points="100,32 138,88 118,88 148,132 52,132 82,88 62,88" fill="#bbf7d0" fill-opacity="0.5"/><rect x="92" y="132" width="16" height="24" fill="#92400e" stroke="none"/><circle cx="100" cy="30" r="6" fill="#dc2626" stroke="none"/><circle cx="88" cy="108" r="4" fill="#dc2626" stroke="none"/><circle cx="114" cy="96" r="4" fill="#f59e0b" stroke="none"/></svg>`
+            }
+        ];
+
+        // Verified fixed annual & 2026 Thai/International holidays
+        const FIXED_HOLIDAYS = {
+            '01-01': { icon: '🎆', en: "New Year's Day", th: 'วันขึ้นปีใหม่' },
+            '01-16': { icon: '📚', en: "Teachers' Day", th: 'วันครู' },
+            '02-14': { icon: '♥',  en: "Valentine's Day", th: 'วันวาเลนไทน์' },
+            '04-06': { icon: '👑', en: 'Chakri Day', th: 'วันจักรี' },
+            '04-13': { icon: '💧', en: 'Songkran Day 1', th: 'วันสงกรานต์' },
+            '04-14': { icon: '💧', en: 'Family Day', th: 'วันครอบครัว' },
+            '04-15': { icon: '💧', en: 'Songkran Day 3', th: 'เถลิงศก' },
+            '05-01': { icon: '🛠️', en: 'Labour Day', th: 'วันแรงงาน' },
+            '05-04': { icon: '👑', en: 'Coronation Day', th: 'วันฉัตรมงคล' },
+            '06-03': { icon: '💜', en: "Queen's Birthday", th: 'วันเฉลิมฯ พระราชินี' },
+            '07-28': { icon: '💛', en: "King's Birthday", th: 'วันเฉลิมฯ ร.10' },
+            '08-12': { icon: '❀',  en: "Mother's Day", th: 'วันแม่แห่งชาติ' },
+            '10-13': { icon: '🕯️', en: 'Rama IX Memorial', th: 'วันนวมินทรมหาราช' },
+            '10-23': { icon: '🏛️', en: 'Chulalongkorn Day', th: 'วันปิยมหาราช' },
+            '10-31': { icon: '🎃', en: 'Halloween', th: 'วันฮาโลวีน' },
+            '12-05': { icon: '🌼', en: "Father's Day", th: 'วันพ่อแห่งชาติ' },
+            '12-10': { icon: '📜', en: 'Constitution Day', th: 'วันรัฐธรรมนูญ' },
+            '12-25': { icon: '🎄', en: 'Christmas Day', th: 'วันคริสต์มาส' },
+            '12-31': { icon: '🎉', en: "New Year's Eve", th: 'วันสิ้นปี' }
+        };
+
+        const DATED_HOLIDAYS = {
+            '2026-03-03': { icon: '☸️', en: 'Makha Bucha', th: 'วันมาฆบูชา' },
+            '2026-05-31': { icon: '☸️', en: 'Visakha Bucha', th: 'วันวิสาขบูชา' },
+            '2026-06-01': { icon: '☸️', en: 'Visakha (Sub)', th: 'ชดเชยวิสาขบูชา' },
+            '2026-07-29': { icon: '🕯️', en: 'Asalha Bucha', th: 'วันอาสาฬหบูชา' },
+            '2026-07-30': { icon: '🕯️', en: 'Buddhist Lent', th: 'วันเข้าพรรษา' },
+            '2026-11-24': { icon: '🏮', en: 'Loy Krathong', th: 'วันลอยกระทง' }
+        };
+
+        function getHolidayForDate(d) {
+            const fullKey = formatDateKey(d);
+            if (DATED_HOLIDAYS[fullKey]) return DATED_HOLIDAYS[fullKey];
+
+            const mmdd = fullKey.slice(5);
+            if (FIXED_HOLIDAYS[mmdd]) return FIXED_HOLIDAYS[mmdd];
+
+            // National Children's Day in Thailand: 2nd Saturday of January
+            if (d.getMonth() === 0 && d.getDay() === 6 && d.getDate() >= 8 && d.getDate() <= 14) {
+                return { icon: '🎈', en: "Children's Day", th: 'วันเด็กแห่งชาติ' };
+            }
+            return null;
+        }
+
+        // ==================== STATE ====================
+        const DEFAULT_ROOMS = [
+            "212/1", "212/2", "212/3",
+            "221/1", "221/2", "221/3",
+            "222/1", "222/2", "222/3",
+            "231/1", "231/2", "231/3",
+            "232/1", "232/2", "232/3",
+            "241/1", "241/2", "241/3",
+            "242/1", "242/2", "242/3"
+        ];
+
+        let lang = localStorage.getItem('parcelDutyLang') || 'en';
+        const t = (key) => (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+        const displayYear = (y) => lang === 'th' ? y + 543 : y;
+
+        let rooms = [...DEFAULT_ROOMS];
+        // Default: DO NOT skip weekends
+        let skipWeekends = false;
+        let currentDate = new Date();
+
+        // Anchor configuration: today is 222/3
+        const todayObj = new Date();
+        let anchorDateStr = formatDateKey(todayObj);
+        let anchorRoom = "222/3";
+
+        let dateOverrides = {};
+        let selectedDateKey = null;
+        let isExporting = false;
+
+        // Theme state: 'auto' (by month), 'classic', or '0'..'11'
+        let themeMode = localStorage.getItem('parcelDutyTheme') || 'auto';
+        let fxEnabled = localStorage.getItem('parcelDutyFx') !== 'false';
+
+        window.onload = function () {
+            document.getElementById('skipWeekendsToggle').checked = skipWeekends;
+            applyStaticTranslations();
+            applyMonthTheme();
+            renderRoomChips();
+            renderCalendar();
+            updateTodayBadge();
+        };
+
+        // ==================== LANGUAGE ====================
+        function setLang(newLang) {
+            lang = newLang;
+            localStorage.setItem('parcelDutyLang', lang);
+            applyStaticTranslations();
+            applyMonthTheme();
+            renderRoomChips();
+            renderCalendar();
+            updateTodayBadge();
+        }
+
+        function applyStaticTranslations() {
+            document.documentElement.lang = lang;
+            document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+            document.title = lang === 'th'
+                ? 'ปฏิทินเวรรับพัสดุ — หอพักล้านนา 2 · จ.ภ.เชียงราย'
+                : 'Parcel Duty Calendar — Lanna 2 Dormitory · PCSHS Chiang Rai';
+
+            const active = 'bg-ink text-white shadow-sm';
+            const idle = 'text-ink-muted hover:text-ink';
+            document.getElementById('langEN').className = `px-2.5 py-1.5 rounded-md transition ${lang === 'en' ? active : idle}`;
+            document.getElementById('langTH').className = `px-2.5 py-1.5 rounded-md transition ${lang === 'th' ? active : idle}`;
+        }
+
+        // ==================== THEME ENGINE ====================
+        function getActiveTheme() {
+            if (themeMode === 'classic') return CLASSIC_THEME;
+            if (themeMode === 'auto') return MONTH_THEMES[currentDate.getMonth()];
+            const idx = parseInt(themeMode, 10);
+            return MONTH_THEMES[idx] || MONTH_THEMES[currentDate.getMonth()];
+        }
+
+        function applyMonthTheme() {
+            const theme = getActiveTheme();
+            const targets = [document.documentElement, document.getElementById('calendarExportContainer')];
+            targets.forEach(el => {
+                if (!el) return;
+                el.style.setProperty('--theme-accent', theme.accent);
+                el.style.setProperty('--theme-soft', theme.soft);
+                el.style.setProperty('--theme-highlight', theme.highlight);
+                el.style.setProperty('--theme-top-strip', theme.topStrip);
+                el.style.setProperty('--theme-masthead-bg', theme.mastheadBg);
+                el.style.setProperty('--theme-page-bg', theme.pageBg);
+            });
+
+            document.getElementById('toolbarThemeEmoji').textContent = theme.emoji;
+            document.getElementById('toolbarThemeName').textContent = theme.name[lang];
+            document.getElementById('mastheadThemeEmoji').textContent = theme.emoji;
+            document.getElementById('mastheadThemeText').textContent = theme.name[lang];
+            document.getElementById('mastheadMotif').innerHTML = theme.motif || '';
+
+            renderThemeMenu();
+            renderAmbientParticles(theme);
+        }
+
+        function renderThemeMenu() {
+            const list = document.getElementById('themeMenuList');
+            const makeBtn = (value, emoji, label) => {
+                const active = themeMode === value;
+                return `<button onclick="selectTheme('${value}')" class="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition ${active ? 'bg-ink text-white font-semibold' : 'hover:bg-canvas text-ink'}">
+                    <span class="flex items-center gap-2 truncate"><span>${emoji}</span><span class="truncate">${label}</span></span>
+                    ${active ? '<i class="fa-solid fa-check text-[10px]"></i>' : ''}
+                </button>`;
+            };
+
+            let html = makeBtn('auto', '✨', t('themeAuto'));
+            html += makeBtn('classic', '◆', t('themeClassic'));
+            html += '<div class="border-t border-ink-line my-1.5"></div>';
+            MONTH_THEMES.forEach((th, idx) => {
+                html += makeBtn(String(idx), th.emoji, `${MONTHS[lang][idx]} · ${th.name[lang]}`);
+            });
+            list.innerHTML = html;
+
+            document.getElementById('fxDot').className = `w-1.5 h-1.5 rounded-full ${fxEnabled ? 'bg-emerald-500' : 'bg-ink-muted/40'}`;
+        }
+
+        function toggleThemeMenu(e) {
+            e.stopPropagation();
+            document.getElementById('themeMenu').classList.toggle('hidden');
+        }
+
+        function selectTheme(mode) {
+            themeMode = mode;
+            localStorage.setItem('parcelDutyTheme', mode);
+            document.getElementById('themeMenu').classList.add('hidden');
+            applyMonthTheme();
+        }
+
+        function toggleFx() {
+            fxEnabled = !fxEnabled;
+            localStorage.setItem('parcelDutyFx', String(fxEnabled));
+            applyMonthTheme();
+            showToast(fxEnabled ? t('toastFxOn') : t('toastFxOff'));
+        }
+
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('themePickerWrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                document.getElementById('themeMenu').classList.add('hidden');
+            }
+        });
+
+        function renderAmbientParticles(theme) {
+            const layer = document.getElementById('ambientLayer');
+            layer.innerHTML = '';
+            if (!fxEnabled || !theme.particles) return;
+
+            const { chars, anim, color } = theme.particles;
+            const animName = anim === 'rise' ? 'particleRise' : anim === 'float' ? 'particleFloat' : 'particleFall';
+            const count = 14;
+
+            for (let i = 0; i < count; i++) {
+                const span = document.createElement('span');
+                span.className = 'ambient-particle';
+                span.textContent = chars[i % chars.length];
+                const left = (i * 7.3 + (i % 3) * 4) % 96;
+                const duration = 9 + (i % 5) * 2.4;
+                const delay = -(i * 1.4);
+                const size = 13 + (i % 4) * 4;
+                const drift = ((i % 2 === 0 ? 1 : -1) * (16 + (i % 4) * 10)) + 'px';
+                const spin = ((i % 2 === 0 ? 1 : -1) * (80 + i * 12)) + 'deg';
+
+                span.style.left = `${left}%`;
+                span.style.fontSize = `${size}px`;
+                span.style.color = color;
+                span.style.setProperty('--drift', drift);
+                span.style.setProperty('--spin', spin);
+                span.style.animation = `${animName} ${duration}s linear ${delay}s infinite`;
+                layer.appendChild(span);
+            }
+        }
+
+        // ==================== HELPERS ====================
+        function formatDateKey(d) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatLongDate(d) {
+            if (lang === 'th') return `${WEEKDAYS.th[d.getDay()]}ที่ ${d.getDate()} ${MONTHS.th[d.getMonth()]} ${d.getFullYear() + 543}`;
+            return `${WEEKDAYS.en[d.getDay()]}, ${MONTHS.en[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+        }
+
+        function renderRoomChips() {
+            const container = document.getElementById('roomListChips');
+            container.innerHTML = '';
+            rooms.forEach((rm, idx) => {
+                const chip = document.createElement('span');
+                const isAnchor = rm === anchorRoom;
+                chip.className = `inline-flex items-center gap-2 pl-1.5 pr-3 h-8 rounded-full text-xs border transition ${
+                    isAnchor ? 'theme-accent-bg text-white border-transparent' : 'bg-white text-ink border-ink-line hover:border-ink'
+                }`;
+                chip.innerHTML = `
+                    <span class="w-5 h-5 rounded-full grid place-items-center text-[10px] font-semibold ${isAnchor ? 'bg-white/20' : 'bg-canvas text-ink-muted'}">${idx + 1}</span>
+                    <span class="font-mono font-bold">${rm}</span>`;
+                container.appendChild(chip);
+            });
+            document.getElementById('roomCountChip').textContent = rooms.length;
+            document.getElementById('roomCountFact').textContent = rooms.length;
+        }
+
+        // ==================== ROTATION LOGIC ====================
+        function getRoomForDate(targetDate) {
+            const targetKey = formatDateKey(targetDate);
+            if (dateOverrides[targetKey]) return dateOverrides[targetKey];
+
+            const dayOfWeek = targetDate.getDay();
+            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+            if (skipWeekends && isWeekend) return { room: null, isWeekend: true };
+
+            const anchorDate = new Date(anchorDateStr + 'T00:00:00');
+            const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+
+            const anchorIndex = rooms.indexOf(anchorRoom);
+            if (anchorIndex === -1) return { room: rooms[0] };
+            if (target.getTime() === anchorDate.getTime()) return { room: rooms[anchorIndex] };
+
+            let count = 0;
+            const step = target >= anchorDate ? 1 : -1;
+            const curr = new Date(anchorDate);
+
+            while (curr.getTime() !== target.getTime()) {
+                curr.setDate(curr.getDate() + step);
+                const dWeek = curr.getDay();
+                const currIsWeekend = (dWeek === 0 || dWeek === 6);
+                if (!skipWeekends || !currIsWeekend) count += step;
+            }
+
+            let roomIdx = (anchorIndex + count) % rooms.length;
+            if (roomIdx < 0) roomIdx += rooms.length;
+            return { room: rooms[roomIdx] };
+        }
+
+        // ==================== RENDER ====================
+        function renderWeekdayHeader() {
+            const header = document.getElementById('weekdayHeader');
+            header.innerHTML = '';
+            WEEKDAYS.en.forEach((_, i) => {
+                const isWknd = i === 0 || i === 6;
+                const el = document.createElement('div');
+                el.className = `border-r border-b border-ink-line px-2 sm:px-3 py-2.5 text-left ${isWknd ? 'theme-highlight-text' : 'text-ink'}`;
+                el.innerHTML = `
+                    <div class="text-[11px] sm:text-xs font-semibold hidden sm:block">${WEEKDAYS[lang][i]}</div>
+                    <div class="text-[11px] font-semibold sm:hidden">${WEEKDAYS_SHORT[lang][i]}</div>`;
+                header.appendChild(el);
+            });
+        }
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            document.getElementById('currentMonthYearDisplay').textContent = `${MONTHS[lang][month]} ${displayYear(year)}`;
+            document.getElementById('calendarMonthTitle').textContent = MONTHS[lang][month];
+            document.getElementById('calendarYearTitle').textContent = `${displayYear(year)}`;
+            document.getElementById('editionValue').textContent = `${displayYear(year)}.${String(month + 1).padStart(2, '0')}`;
+            document.getElementById('dutyDaysFact').textContent = skipWeekends ? t('monFri') : t('everyDay');
+
+            renderWeekdayHeader();
+
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const todayStr = formatDateKey(new Date());
+
+            for (let i = 0; i < firstDay; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = "min-h-[96px] sm:min-h-[124px] bg-canvas/60 border-r border-b border-ink-line";
+                grid.appendChild(emptyCell);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDate = new Date(year, month, day);
+                const dateKey = formatDateKey(dayDate);
+                const dayOfWeek = dayDate.getDay();
+                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                const isToday = dateKey === todayStr && !isExporting;
+                const isEdited = !!dateOverrides[dateKey];
+                const dutyInfo = getRoomForDate(dayDate);
+                const holiday = getHolidayForDate(dayDate);
+                const isOff = !dutyInfo.room && !dutyInfo.note;
+
+                const cell = document.createElement('div');
+                cell.className = `group min-h-[96px] sm:min-h-[124px] p-2 sm:p-3 flex flex-col gap-1.5 border-r border-b border-ink-line cursor-pointer relative transition
+                    ${isOff ? 'weekend-hatch' : (holiday ? 'bg-white hover:bg-canvas/70' : 'bg-white hover:bg-canvas/70')}
+                    ${isToday ? 'today-ring ring-2 ring-inset ring-ink' : ''}`;
+                cell.onclick = () => openEditModal(dateKey, dayDate, dutyInfo, holiday);
+
+                const numClass = isToday
+                    ? 'bg-ink text-white'
+                    : (isWeekend || holiday ? 'theme-highlight-text' : 'text-ink');
+
+                const header = `
+                    <div class="flex items-start justify-between gap-1">
+                        <span class="w-7 h-7 sm:w-8 sm:h-8 -ml-0.5 -mt-0.5 rounded-full grid place-items-center text-sm sm:text-base font-semibold tabular-nums shrink-0 ${numClass}">${day}</span>
+                        <span class="flex items-center gap-1.5">
+                            ${isToday ? `<span class="hidden sm:inline text-[10px] font-semibold eyebrow text-ink">${t('todayTag')}</span>` : ''}
+                            ${isEdited ? `<span class="w-2 h-2 rounded-full theme-highlight-bg" title="${t('legendEdited')}"></span>` : ''}
+                        </span>
+                    </div>`;
+
+                const holidayPill = holiday ? `
+                    <div class="inline-flex items-center gap-1 max-w-full rounded-md theme-soft-bg theme-accent-text px-1.5 py-0.5 text-[10px] font-semibold leading-tight">
+                        <span class="shrink-0">${holiday.icon}</span>
+                        <span class="truncate">${escapeHtml(holiday[lang])}</span>
+                    </div>` : '';
+
+                let body = '';
+                if (dutyInfo.note) {
+                    body = `
+                        <div class="mt-auto space-y-1">
+                            ${dutyInfo.room ? `<div class="font-mono font-bold text-xs sm:text-sm theme-accent-text">${dutyInfo.room}</div>` : ''}
+                            <div class="text-[10px] sm:text-xs font-medium text-ink-soft bg-canvas border border-ink-line rounded-md px-1.5 py-1 leading-tight line-clamp-2">${escapeHtml(dutyInfo.note)}</div>
+                        </div>`;
+                } else if (dutyInfo.room) {
+                    body = `
+                        <div class="mt-auto">
+                            <div class="hidden sm:block text-[10px] font-medium text-ink-muted mb-1">${t('onDuty')}</div>
+                            <div class="inline-flex items-center rounded-md theme-accent-bg text-white font-mono font-bold text-xs sm:text-[15px] px-1.5 sm:px-2 py-0.5 sm:py-1 tracking-tight">${dutyInfo.room}</div>
+                        </div>`;
+                } else {
+                    body = `
+                        <div class="mt-auto text-[10px] sm:text-xs text-ink-muted font-medium">${dutyInfo.isWeekend ? t('weekend') : t('dayOff')}</div>`;
+                }
+
+                cell.innerHTML = header + holidayPill + body;
+                grid.appendChild(cell);
+            }
+
+            const totalCells = firstDay + daysInMonth;
+            const trailing = (7 - (totalCells % 7)) % 7;
+            for (let i = 0; i < trailing; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = "min-h-[96px] sm:min-h-[124px] bg-canvas/60 border-r border-b border-ink-line";
+                grid.appendChild(emptyCell);
+            }
+
+            renderMiniCalendars();
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function renderMiniCalendars() {
+            const prevDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+            document.getElementById('prevMonthMiniTitle').textContent = `${MONTHS[lang][prevDate.getMonth()]} ${displayYear(prevDate.getFullYear())}`;
+            renderMiniGrid('prevMonthMiniGrid', prevDate);
+
+            const nextDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+            document.getElementById('nextMonthMiniTitle').textContent = `${MONTHS[lang][nextDate.getMonth()]} ${displayYear(nextDate.getFullYear())}`;
+            renderMiniGrid('nextMonthMiniGrid', nextDate);
+        }
+
+        function renderMiniGrid(elementId, dateObj) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = '';
+            const firstDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1).getDay();
+            const daysInMonth = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
+
+            WEEKDAYS_MINI[lang].forEach((h, i) => {
+                const el = document.createElement('div');
+                el.className = `text-center font-sans font-semibold ${i === 0 || i === 6 ? 'theme-highlight-text' : 'text-ink-muted'}`;
+                el.textContent = h;
+                container.appendChild(el);
+            });
+            for (let i = 0; i < firstDay; i++) container.appendChild(document.createElement('div'));
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dow = (firstDay + d - 1) % 7;
+                const el = document.createElement('div');
+                el.className = `text-center tabular-nums ${dow === 0 || dow === 6 ? 'text-ink-muted/60' : ''}`;
+                el.textContent = d;
+                container.appendChild(el);
+            }
+        }
+
+        // ==================== NAVIGATION ====================
+        function changeMonth(delta) {
+            currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + delta, 1);
+            applyMonthTheme();
+            renderCalendar();
+        }
+
+        function goToCurrentMonth() {
+            currentDate = new Date();
+            applyMonthTheme();
+            renderCalendar();
+        }
+
+        function toggleSkipWeekends() {
+            skipWeekends = document.getElementById('skipWeekendsToggle').checked;
+            renderCalendar();
+            updateTodayBadge();
+            showToast(skipWeekends ? t('toastSkipOn') : t('toastSkipOff'));
+        }
+
+        function updateTodayBadge() {
+            const info = getRoomForDate(new Date());
+            const badge = document.getElementById('todayRoomBadge');
+            if (info.room) badge.textContent = info.room;
+            else if (info.note) badge.textContent = info.note;
+            else badge.textContent = info.isWeekend ? t('weekend') : t('dayOff');
+        }
+
+        // ==================== MODAL: EDIT DAY ====================
+        function openEditModal(dateKey, dateObj, currentDuty, holiday) {
+            selectedDateKey = dateKey;
+            document.getElementById('modalDateTitle').textContent = formatLongDate(dateObj);
+
+            const hBadge = document.getElementById('modalHolidayBadge');
+            if (holiday) {
+                hBadge.textContent = `${holiday.icon} ${holiday[lang]}`;
+                hBadge.classList.remove('hidden');
+            } else {
+                hBadge.classList.add('hidden');
+            }
+
+            const select = document.getElementById('modalRoomSelect');
+            select.innerHTML = `<option value="">${t('selectRoom')}</option>`;
+            rooms.forEach(rm => {
+                const opt = document.createElement('option');
+                opt.value = rm;
+                opt.textContent = `${t('roomPrefix')} ${rm}`;
+                if (currentDuty.room === rm) opt.selected = true;
+                select.appendChild(opt);
+            });
+
+            document.getElementById('modalCustomNote').value = currentDuty.note || '';
+            showModal('editDayModal');
+        }
+
+        function closeEditModal() {
+            hideModal('editDayModal');
+            selectedDateKey = null;
+        }
+
+        function saveDayCustomization() {
+            if (!selectedDateKey) return;
+            const roomVal = document.getElementById('modalRoomSelect').value;
+            const noteVal = document.getElementById('modalCustomNote').value.trim();
+
+            if (roomVal || noteVal) {
+                dateOverrides[selectedDateKey] = { room: roomVal || null, note: noteVal || null };
+            } else {
+                delete dateOverrides[selectedDateKey];
+            }
+            closeEditModal();
+            renderCalendar();
+            updateTodayBadge();
+            showToast(t('toastSaved'));
+        }
+
+        function resetDayCustomization() {
+            if (selectedDateKey && dateOverrides[selectedDateKey]) delete dateOverrides[selectedDateKey];
+            closeEditModal();
+            renderCalendar();
+            updateTodayBadge();
+            showToast(t('toastReset'));
+        }
+
+        // ==================== MODAL: SETTINGS ====================
+        function openSettingsModal() {
+            const select = document.getElementById('anchorRoomSelect');
+            select.innerHTML = '';
+            rooms.forEach(rm => {
+                const opt = document.createElement('option');
+                opt.value = rm;
+                opt.textContent = `${t('roomPrefix')} ${rm}`;
+                if (rm === anchorRoom) opt.selected = true;
+                select.appendChild(opt);
+            });
+            document.getElementById('settingsAnchorRoom').textContent = anchorRoom;
+            document.getElementById('roomSequenceInput').value = rooms.join(', ');
+            showModal('settingsModal');
+        }
+
+        function closeSettingsModal() { hideModal('settingsModal'); }
+
+        function saveSettings() {
+            const seqInput = document.getElementById('roomSequenceInput').value;
+            const newRooms = seqInput.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            if (newRooms.length === 0) { showToast(t('toastNeedRoom')); return; }
+
+            rooms = newRooms;
+            anchorRoom = document.getElementById('anchorRoomSelect').value;
+            if (!rooms.includes(anchorRoom)) anchorRoom = rooms[0];
+
+            closeSettingsModal();
+            renderRoomChips();
+            renderCalendar();
+            updateTodayBadge();
+            showToast(t('toastSettings'));
+        }
+
+        function showModal(id) {
+            const m = document.getElementById(id);
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+        function hideModal(id) {
+            const m = document.getElementById(id);
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        }
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                closeEditModal();
+                closeSettingsModal();
+                document.getElementById('themeMenu').classList.add('hidden');
+            }
+        });
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = msg;
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.add('translate-y-24', 'opacity-0'), 3000);
+        }
+
+        // ==================== EXPORT ====================
+        function exportFileBase() {
+            const m = MONTHS[lang][currentDate.getMonth()];
+            const y = displayYear(currentDate.getFullYear());
+            return `${t('fileName')}_${m}_${y}`;
+        }
+
+        async function captureCalendar() {
+            const node = document.getElementById('calendarExportContainer');
+            isExporting = true;
+            renderCalendar();
+            node.classList.add('export-mode');
+            try {
+                return await captureNode(node);
+            } finally {
+                node.classList.remove('export-mode');
+                isExporting = false;
+                renderCalendar();
+            }
+        }
+
+        let fontEmbedCSSCache = null;
+        async function buildFontEmbedCSS() {
+            if (fontEmbedCSSCache !== null) return fontEmbedCSSCache;
+            const toDataURL = (blob) => new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => resolve(r.result);
+                r.onerror = reject;
+                r.readAsDataURL(blob);
+            });
+            let out = '';
+            const links = [...document.querySelectorAll('link[href*="fonts.googleapis.com/css"]')];
+            for (const link of links) {
+                const css = await (await fetch(link.href)).text();
+                const blocks = css.match(/\/\*\s*[\w-]+\s*\*\/\s*@font-face\s*{[^}]*}/g) || [];
+                for (const block of blocks) {
+                    const subset = block.match(/\/\*\s*([\w-]+)\s*\*\//)[1];
+                    if (subset !== 'latin' && subset !== 'thai') continue;
+                    const urlMatch = block.match(/url\(([^)]+)\)/);
+                    if (!urlMatch) continue;
+                    const fontUrl = urlMatch[1].replace(/["']/g, '');
+                    const dataUrl = await toDataURL(await (await fetch(fontUrl)).blob());
+                    out += block.replace(urlMatch[0], `url(${dataUrl})`) + '\n';
+                }
+            }
+            fontEmbedCSSCache = out;
+            return out;
+        }
+
+        async function captureNode(node) {
+            const skipNoPrint = el => !(el.classList && (el.classList.contains('no-print') || el.classList.contains('no-export')));
+
+            if (document.fonts && document.fonts.ready) await document.fonts.ready;
+
+            if (window.htmlToImage) {
+                try {
+                    const opts = {
+                        pixelRatio: 2,
+                        backgroundColor: '#ffffff',
+                        width: node.offsetWidth,
+                        height: node.offsetHeight,
+                        fontEmbedCSS: await buildFontEmbedCSS(),
+                        filter: skipNoPrint
+                    };
+                    await htmlToImage.toCanvas(node, opts);
+                    return await htmlToImage.toCanvas(node, opts);
+                } catch (err) {
+                    console.warn('html-to-image failed, falling back to html2canvas', err);
+                }
+            }
+
+            return html2canvas(node, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                ignoreElements: el => !skipNoPrint(el),
+                onclone: (doc) => {
+                    const s = doc.createElement('style');
+                    s.textContent = 'img, svg { display: inline-block !important; }';
+                    doc.head.appendChild(s);
+                }
+            });
+        }
+
+        function exportAsImage() {
+            showToast(t('toastExportingPng'));
+            captureCalendar().then(canvas => {
+                const link = document.createElement('a');
+                link.download = `${exportFileBase()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast(t('toastPngDone'));
+            }).catch(err => { console.error(err); showToast(t('toastError')); });
+        }
+
+        function exportAsPDF() {
+            showToast(t('toastExportingPdf'));
+            captureCalendar().then(canvas => {
+                const { jsPDF } = window.jspdf;
+                const imgData = canvas.toDataURL('image/png');
+                const ratio = canvas.width / canvas.height;
+                const orientation = ratio >= 1 ? 'l' : 'p';
+                const pdf = new jsPDF(orientation, 'mm', 'a4');
+                const pageW = pdf.internal.pageSize.getWidth();
+                const pageH = pdf.internal.pageSize.getHeight();
+                const margin = 8;
+                let w = pageW - margin * 2;
+                let h = w / ratio;
+                if (h > pageH - margin * 2) { h = pageH - margin * 2; w = h * ratio; }
+                pdf.addImage(imgData, 'PNG', (pageW - w) / 2, (pageH - h) / 2, w, h);
+                pdf.save(`${exportFileBase()}.pdf`);
+                showToast(t('toastPdfDone'));
+            }).catch(err => { console.error(err); showToast(t('toastError')); });
+        }
+    </script>
+</body>
+</html>
